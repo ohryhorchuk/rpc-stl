@@ -17,7 +17,7 @@
             "name": "(lldb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build/rpc-stl",
+            "program": "${workspaceFolder}/build/rpc-stl-app",
             "args": [],
             "stopAtEntry": true,
             "cwd": "${workspaceFolder}",

@@ -1,5 +1,14 @@
-# Build
+# Build and packages
 build/
+external/CMakeFiles/
+external/zmq/
+external/cmake_install.cmake
+external/CMakeCache.txt
+external/Makefile
+conanbuildinfo.cmake
+conaninfo.txt
+conanbuildinfo.txt
+conan.cmake
 
 # Prerequisites
 *.d
