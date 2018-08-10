@@ -2,6 +2,7 @@ cmake_minimum_required (VERSION 2.8.12)
 
 project (rpc-stl-external)
 
+### ZeroMQ Library
 # build directory
 set(ZMQ_PREFIX ${CMAKE_BINARY_DIR}/zmq/ZMQ-prefix)
 
