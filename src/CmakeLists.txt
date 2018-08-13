@@ -1,0 +1,2 @@
+add_library(rpcstl storage-service.cpp)
+target_include_directories(rpcstl PUBLIC ${ZMQ_HEADERS_DIR} ${CPPZMQ_HEADERS_DIR})
