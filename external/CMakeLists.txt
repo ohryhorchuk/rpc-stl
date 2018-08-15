@@ -54,4 +54,11 @@ endif()
 set(ZMQ_LIBRARY_DIRS ${ZMQ_INSTALL}/lib)
 set(ZMQ_EXTERNAL TRUE)
 
+###ASIO
+
+
+
+
+
+
 add_library(external external.cpp)
