@@ -55,10 +55,10 @@ set(ZMQ_LIBRARY_DIRS ${ZMQ_INSTALL}/lib)
 set(ZMQ_EXTERNAL TRUE)
 
 ###ASIO
+set(ASIO_URL https://github.com/ohryhorchuk/asio.git)
 
-
-
-
-
+execute_process(COMMAND           ${GIT_EXECUTABLE} clone ${ASIO_URL}
+                WORKING_DIRECTORY ${SOURCE_DIR}
+                OUTPUT_VARIABLE   ${git_output})
 
 add_library(external external.cpp)
