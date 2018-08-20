@@ -1,4 +1,5 @@
 // STL
+#include <algorithm>
 #include <iomanip>
 #include <string>
 #include <sstream>
@@ -9,19 +10,23 @@
 #define ASIO_STANDALONE
 #include <asio.hpp>
 
-
 constexpr size_t port = 55555;
 
-class connection
+// struct Message
+// {
+
+// };
+
+class Connection
 {
 public:
     enum 
     {
-        HEADER_LENGTH = 8
+        header_length = 8
     };
 
 public:
-    connection(asio::ip::tcp::socket& io)
+    Connection(asio::ip::tcp::socket& io)
     : m_socket(io)
     {
 
@@ -50,7 +55,7 @@ public:
         // Read first series of bytes, should be ecnoded length of overal message
         const size_t read_size = asio::read(m_socket, asio::buffer(m_inbound_header));
 
-        const size_t body_size = decode_size(std::string(m_inbound_header, HEADER_LENGTH));
+        const size_t body_size = decode_size(std::string(m_inbound_header, header_length));
 
         m_inbound_body.resize(body_size);
 
@@ -63,7 +68,7 @@ protected:
     {
         std::ostringstream header_enc_stream;
 
-        header_enc_stream << std::setw(HEADER_LENGTH) << std::hex << size;
+        header_enc_stream << std::setw(header_length) << std::hex << size;
 
         if (!header_enc_stream)
         {
@@ -72,7 +77,7 @@ protected:
 
         const std::string encoded_header_size = header_enc_stream.str();
 
-        if (encoded_header_size.size() != HEADER_LENGTH)
+        if (encoded_header_size.size() != header_length)
         {
             throw std::invalid_argument("Failed to encode header size as hex because encoded_header_size.size() != HEADER_LENGTH"); 
         }
@@ -95,25 +100,37 @@ protected:
 private:
     // Networking
     asio::ip::tcp::socket& m_socket;
+
     // Current data to send
     std::string m_outbound_header;
     std::string m_outbound_body;
 
     // Recieved data from last read
-    char m_inbound_header[HEADER_LENGTH];
+    char m_inbound_header[header_length];
     std::vector<char> m_inbound_body;
 };
 
-class server
+class Server
 {
 public:
-    server(asio::io_context& io_context)
+    Server(asio::io_context& io_context)
     : m_acceptor(io_context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)),
     m_socket(io_context)
     {
+    }
+
+    void do_serve()
+    {
         try
         {
-            accept();
+            while (1)
+            {
+                wait_and_accept_connection();
+                const std::string curr_msg = retrieve_one();
+                const std::string curr_resp = handle_one(curr_msg);
+                respond_one(curr_resp);
+                std::cout << std::endl;
+            }
         } 
         catch (const std::exception& e)
         {
@@ -121,36 +138,102 @@ public:
         }
     }
 
-    void accept()
+    void wait_and_accept_connection()
     {
+        std::cout << "~";
         m_acceptor.accept(m_socket);
-        // asio::ip::tcp::socket socket = ;
-        m_connection_ptr = std::make_shared<connection>(m_socket);
+        std::cout << "~";
+        m_connection_ptr = std::make_shared<Connection>(m_socket);
     }
 
-    void read()
+    std::string retrieve_one()
     {
+        const std::string currentMessage = m_connection_ptr->read();
+        return currentMessage;
+    }
 
+    std::string handle_one(const std::string& message)
+    {
+        std::cout << "*";
+        std::string copy{message};
+        std::next_permutation(copy.begin(), copy.end());
+
+        std::cout << "*";
+        return copy;
+    }
+
+    void respond_one(const std::string& response)
+    {
+        std::cout << "±";
+        const size_t sent_size = m_connection_ptr->write(response);
+        if (sent_size == response.size())
+            std::cout << "±";
     }
 
 private:
     asio::ip::tcp::acceptor m_acceptor;
-    std::shared_ptr<connection> m_connection_ptr;
+    std::shared_ptr<Connection> m_connection_ptr;
     asio::ip::tcp::socket m_socket;
+};
+
+class Client
+{
+public:
+    Client(asio::io_context& io_context)
+    : m_socket(io_context),
+    m_resolver(io_context)
+    {
+    }
+
+    void resolve_and_connect(const std::string& host, const std::string& service)
+    {
+        asio::ip::tcp::resolver::query query(host, service);
+        asio::ip::tcp::resolver::iterator endpoint_iterator = m_resolver.resolve(query);
+
+        std::error_code ec;
+        asio::connect(m_socket, endpoint_iterator, ec);
+        if (!ec)
+        {
+            std::cout << "*";
+            m_connection_ptr = std::make_shared<Connection>(m_socket);
+        }
+    }
+
+    void request(const std::string& message)
+    {
+        const std::size_t sent_size = m_connection_ptr->write(message);
+        if (sent_size == message.size())
+        {
+            
+        }
+        
+    }
+
+    std::string fetch_response()
+    {
+        return m_connection_ptr->read();
+    }
+
+private:
+    asio::ip::tcp::socket m_socket;
+    asio::ip::tcp::resolver m_resolver;
+    std::shared_ptr<Connection> m_connection_ptr;
 };
 
 
 
 int main(int argc, char const *argv[])
 {
+    if (argc != 2)
+        return EXIT_FAILURE;
+
     std::string run_option = std::string(argv[1]);
 
     asio::io_context io;
     if (run_option == "server")
     {
-        server srv(io);
+        Server srv(io);
         io.run();
-
     }
     else if (run_option == "client")
     {
