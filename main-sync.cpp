@@ -5,6 +5,7 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <locale>
 
 // ASIO
 #define ASIO_STANDALONE
@@ -25,14 +26,13 @@ public:
         header_length = 8
     };
 
-public:
     Connection(asio::ip::tcp::socket& io)
     : m_socket(io)
     {
 
     }
 
-    asio::ip::tcp::socket& socket()
+    asio::ip::tcp::socket& socket() noexcept
     {
         return m_socket;
     }
@@ -106,7 +106,7 @@ private:
     std::string m_outbound_body;
 
     // Recieved data from last read
-    char m_inbound_header[header_length];
+    char m_inbound_header[header_length]{};
     std::vector<char> m_inbound_body;
 };
 
@@ -123,15 +123,16 @@ public:
     {
         try
         {
-            while (1)
+            while (true)
             {
                 wait_and_accept_connection();
                 const std::string curr_msg = retrieve_one();
                 const std::string curr_resp = handle_one(curr_msg);
                 respond_one(curr_resp);
                 std::cout << std::endl;
+
             }
-        } 
+        }
         catch (const std::exception& e)
         {
             std::cout << e.what();
@@ -143,7 +144,13 @@ public:
         std::cout << "~";
         m_acceptor.accept(m_socket);
         std::cout << "~";
-        m_connection_ptr = std::make_shared<Connection>(m_socket);
+
+        if (m_connection_ptr)
+        {
+            m_connection_ptr.reset();
+        }
+
+        m_connection_ptr = std::make_unique<Connection>(m_socket);
     }
 
     std::string retrieve_one()
@@ -156,23 +163,25 @@ public:
     {
         std::cout << "*";
         std::string copy{message};
-        std::next_permutation(copy.begin(), copy.end());
+        std::transform(copy.begin(), copy.end(), copy.begin(), ::toupper);
 
         std::cout << "*";
         return copy;
     }
 
-    void respond_one(const std::string& response)
+    void respond_one(const std::string& response) const
     {
         std::cout << "±";
         const size_t sent_size = m_connection_ptr->write(response);
         if (sent_size == response.size())
+        {
             std::cout << "±";
+        }
     }
 
 private:
     asio::ip::tcp::acceptor m_acceptor;
-    std::shared_ptr<Connection> m_connection_ptr;
+    std::unique_ptr<Connection> m_connection_ptr;
     asio::ip::tcp::socket m_socket;
 };
 
@@ -185,10 +194,20 @@ public:
     {
     }
 
+    virtual ~Client()
+    {        
+        m_socket.close();
+    }
+
     void resolve_and_connect(const std::string& host, const std::string& service)
     {
-        asio::ip::tcp::resolver::query query(host, service);
-        asio::ip::tcp::resolver::iterator endpoint_iterator = m_resolver.resolve(query);
+        if(m_connection_ptr)
+        {
+            std::cout << "sss";
+        }
+
+        const asio::ip::tcp::resolver::query query(host, service);
+        const asio::ip::tcp::resolver::iterator endpoint_iterator = m_resolver.resolve(query);
 
         std::error_code ec;
         asio::connect(m_socket, endpoint_iterator, ec);
@@ -201,17 +220,31 @@ public:
 
     void request(const std::string& message)
     {
-        const std::size_t sent_size = m_connection_ptr->write(message);
-        if (sent_size == message.size())
+        if (m_connection_ptr)
         {
-            
+            const std::size_t sent_size = m_connection_ptr->write(message);
+            if (sent_size == message.size())
+            {
+
+            }
+            else
+            {
+                throw std::runtime_error("Sent not everything that supposed to");
+            }
         }
-        
     }
 
     std::string fetch_response()
     {
-        return m_connection_ptr->read();
+        if (m_connection_ptr)
+        {
+            return m_connection_ptr->read();            
+        }
+        else
+        {
+            throw std::runtime_error("Connect first!");
+        }
+        
     }
 
 private:
@@ -227,17 +260,22 @@ int main(int argc, char const *argv[])
     if (argc != 2)
         return EXIT_FAILURE;
 
-    std::string run_option = std::string(argv[1]);
+    const std::string run_option = std::string(argv[1]);
+    //const std::string run_option{ "client" };
 
     asio::io_context io;
     if (run_option == "server")
     {
         Server srv(io);
+        srv.do_serve();
         io.run();
     }
     else if (run_option == "client")
     {
-
+        Client clnt(io);
+        clnt.resolve_and_connect("localhost", std::to_string(port));
+        clnt.request("HELLO, WORLD!");
+        std::cout << clnt.fetch_response() << std::endl;
     }
 
 
