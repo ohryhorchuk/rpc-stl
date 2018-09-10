@@ -1,7 +1,7 @@
 #include "buffer.h"
 
 #include <stdexcept>
-
+#include <sstream>
 namespace quatux
 {
     namespace core
@@ -78,6 +78,58 @@ namespace quatux
             return helpers::size(const_cast<buffer_t*>(this));
         }
 
+        void buffer_t::put(const std::string& str)
+        {
+            const std::size_t item_length = str.length();
+            put(item_length);
+            uint8_t *local_ptr = data();
+            memcpy(local_ptr, str.c_str(), item_length);
+            helpers::mov_fw(this, item_length);
+        }
+
+        void buffer_t::put(const buffer_t& from)
+        {
+            const std::size_t s = size();
+            const std::size_t p = pos();
+
+            const std::size_t from_s = size();
+            const std::size_t from_p = pos();
+
+            if ((s - p) < (from_s - from_p))
+            {
+                // exception
+            }
+
+            uint8_t *d = data();
+            uint8_t *from_d = from.data();
+
+            const std::size_t delta = from_s - from_p;
+            memcpy(d, from_d, delta);
+            helpers::mov_fw(this, delta);
+        }
+
+        std::string buffer_t::get()
+        {
+            const std::size_t upcomming_size = get<std::size_t>();
+            std::stringstream ss;
+
+            uint8_t *local_ptr = data();
+            for (std::size_t i = 0; i < upcomming_size; ++i)
+            {
+                ss << local_ptr[i];
+            }
+            
+            helpers::mov_fw(this, upcomming_size);
+            return ss.str();
+        }
+
+        void buffer_t::get(std::shared_ptr<buffer_t>& dest)
+        {
+            std::size_t s = dest->size() - dest->pos();
+            memcpy(dest->data(), data(), s);
+            helpers::mov_fw(this, s);
+        }
+
         std::shared_ptr<buffer_t> buffer_t::allocate(const std::size_t size)
         {
             if (size >= std::numeric_limits<std::size_t>::max())
@@ -93,7 +145,10 @@ namespace quatux
 
         std::shared_ptr<buffer_t> buffer_t::copy(const buffer_t& copy_from)
         {
-            return nullptr;
+            std::shared_ptr<buffer_t> other = allocate(copy_from.size());
+            other->put(copy_from);
+            other->reset_pos();
+            return other;
         }
     }
 }

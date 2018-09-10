@@ -12,7 +12,6 @@ namespace quatux
 
         namespace helpers
         {
-
             void mov_fw(const buffer_t *ptr, const std::size_t dest);
         }
 
@@ -47,6 +46,9 @@ namespace quatux
                 helpers::mov_fw(this, item_type_size);
             }
 
+            void put(const std::string& str);
+            void put(const buffer_t& from);
+
             template <typename T>
             T get()
             {
@@ -55,9 +57,8 @@ namespace quatux
 
                 if (available_bytes < item_type_size)
                 {
-                    /*constexpr const std::string type_name = type_id(T).name();
-                    const std::string exception_text = { "insufficient buffer available for type_name=" + type_name };*/
-                    //throw std::overflow_error();
+                    const std::string exception_text = { "insufficient buffer available" };
+                    throw std::overflow_error(exception_text);
                 }
 
                 uint8_t *data_ptr = data();
@@ -75,11 +76,9 @@ namespace quatux
                 return val;
             }
 
-            template <typename T>
-            T get_at(const std::size_t item_index)
-            {
-                return T();                
-            }
+            std::string get();
+            void get(std::shared_ptr<buffer_t>& dest);
+            
         };        
     }
 }
